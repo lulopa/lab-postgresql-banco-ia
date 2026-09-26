@@ -1,0 +1,192 @@
+Fase 3 (Quality Gate G3)  Banco Andino Colombia. 
+
+1.  Intentar insertar dos clientes con el mismo documento (debe fallar)
+-- 1.1 Inserción del primer cliente con documento nuevo (Válido) 
+CALL banco_core.sp_crear_cliente( 
+    'NATURAL', 1, 1, '77001122', 'PEDRO', 'PEREZ', '1988-03-15', NULL, NULL, NULL 
+); 
+ 
+-- 1.2 Intentar insertar un segundo cliente con la misma Cédula de Ciudadanía (CC 77001122) 
+-- RESULTADO ESPERADO: FALLO (ERROR 23505: llave duplicada viola restricción de unicidad «uk_persona_natural_doc») 
+CALL banco_core.sp_crear_cliente( 
+    'NATURAL', 1, 1, '77001122', 'PEDRO_DUPLICADO', 'PEREZ', '1988-03-15', NULL, NULL, NULL 
+); 
+ 
+-- RESULTADO OBTENIDO:
+ERROR: llave duplicada viola restricción de unicidad «uk_persona_natural_doc»
+  Detail: Ya existe la llave (id_tipo_documento, numero_documento)=(1, 77001122).
+  Where: sentencia SQL: «INSERT INTO banco_core.persona_natural (id_cliente, id_tipo_documento, numero_documento, primer_nombre, primer_apellido, fecha_nacimiento)
+        VALUES (p_id_cliente, p_id_tipo_documento, p_numero_documento, p_primer_nombre, p_primer_apellido, p_fecha_nacimiento)»
+función PL/pgSQL sp_crear_cliente(character varying,integer,integer,character varying,character varying,character varying,date,character varying,character varying) en la línea 12 en sentencia SQL  [Code: 0, SQL State: 23505]
+
+2. Intentar crear cuenta con cliente inexistente (Debe fallar) 
+-- Intentar aperturar una cuenta para un id_cliente que no existe en la tabla cliente 
+-- RESULTADO ESPERADO: FALLO (ERROR PL/pgSQL: Cliente 9999999 inexistente o no está en estado ACTIVO) 
+CALL banco_core.sp_crear_cuenta( 
+    9999999, -- ID de cliente inexistente 
+    1,       -- ID de producto 
+    1,       -- ID de oficina 
+    1,       -- ID usuario operador 
+    NULL, NULL 
+); 
+ 
+-- RESULTADO OBTENIDO:
+ERROR: Cliente 9999999 inexistente o no está en estado ACTIVO
+  Where: función PL/pgSQL sp_crear_cuenta(bigint,integer,integer,integer) en la línea 4 en RAISE  [Code: 0, SQL State: P0001]
+
+3. Intentar retiro superior al saldo sin sobregiro (Debe fallar) 
+-- Intentar retirar $10.000.000 COP de la cuenta ID 1 (Saldo actual menor al valor solicitado sin sobregiro) 
+-- RESULTADO ESPERADO: FALLO (ERROR PL/pgSQL: Saldo insuficiente en cuenta 1) 
+CALL banco_core.sp_retirar( 
+    uuid_generate_v4(), -- Idempotency Key 
+    1,                  -- ID cuenta origen 
+    10000000.00,        -- Monto a retirar ($10M) 
+    1,                  -- ID usuario operador 
+    NULL 
+); 
+ 
+-- RESULTADO OBTENIDO: 
+ERROR: inserción o actualización en la tabla «transaccion» viola la llave foránea «transaccion_id_cuenta_origen_fkey»
+  Detail: La llave (id_cuenta_origen)=(1) no está presente en la tabla «cuenta».
+  Where: sentencia SQL: «INSERT INTO banco_core.transaccion (idempotency_key, id_cuenta_origen, id_tipo_transaccion, id_estado_transaccion, monto, id_usuario_operador)
+    VALUES (p_idempotency_key, p_id_cuenta_origen, 2, 2, p_monto, p_usuario_operador)
+    RETURNING id_transaccion»
+función PL/pgSQL sp_retirar(uuid,bigint,numeric,integer) en la línea 26 en sentencia SQL  [Code: 0, SQL State: 23503]
+
+4. Intentar transferir origen = destino (Debe fallar) 
+-- Intentar transferir fondos desde la cuenta ID 1 hacia la misma cuenta ID 1 
+-- RESULTADO ESPERADO: FALLO (ERROR PL/pgSQL: Cuenta de origen y destino no pueden ser iguales) 
+CALL banco_core.sp_transferir( 
+    uuid_generate_v4(), -- Idempotency Key 
+    1,                  -- Cuenta Origen 
+    1,                  -- Cuenta Destino (Igual a Origen) 
+    50000.00,           -- Monto 
+    1,                  -- ID usuario operador 
+    NULL 
+); 
+ 
+-- RESULTADO OBTENIDO:
+ERROR: Cuenta de origen y destino no pueden ser iguales
+  Where: función PL/pgSQL sp_transferir(uuid,bigint,bigint,numeric,integer) en la línea 13 en RAISE  [Code: 0, SQL State: P0001]
+
+5. Intentar modificar una transacción POSTED (Debe impedirse según el diseño) 
+-- Intentar alterar el monto de una transacción en estado POSTED (id_estado_transaccion = 2) 
+-- RESULTADO ESPERADO: FALLO (ERROR PL/pgSQL: VIOLACIÓN DE INMUTABILIDAD: Transacciones en estado POSTED no pueden ser modificadas ni eliminadas) 
+UPDATE banco_core.transaccion  
+SET monto = 999999.00  
+WHERE id_transaccion = 1 AND id_estado_transaccion = 2; 
+ 
+-- RESULTADO OBTENIDO:
+ERROR: VIOLACIÓN DE INMUTABILIDAD: Transacciones en estado POSTED no pueden ser modificadas ni eliminadas (ID: 1)
+  Where: función PL/pgSQL fn_trg_inmutabilidad_transaccion() en la línea 7 en RAISE  [Code: 0, SQL State: P0001]
+
+6. Ejecutar una transferencia válida (Débito y crédito atómicos) 
+-- 6.1 Ejecución de la transferencia entre la Cuenta 1 y la Cuenta 2 
+@delimiter /; 
+DO $$ 
+DECLARE 
+    v_cli1 BIGINT; 
+    v_cli2 BIGINT; 
+    v_cta_orig BIGINT; 
+    v_cta_dest BIGINT; 
+    v_num1 VARCHAR(20); 
+    v_num2 VARCHAR(20); 
+    v_tx_deposito BIGINT; 
+    v_tx_transferencia BIGINT; 
+BEGIN 
+    -- 1. Crear 2 clientes de prueba 
+    CALL banco_core.sp_crear_cliente('NATURAL', 1, 1, '90000001', 'ALBERTO', 'LOPEZ', '1985-01-01', NULL, NULL, v_cli1); 
+    CALL banco_core.sp_crear_cliente('NATURAL', 1, 1, '90000002', 'BEATRIZ', 'GOMEZ', '1990-02-02', NULL, NULL, v_cli2); 
+ 
+    -- 2. Crear y activar 2 cuentas 
+    CALL banco_core.sp_crear_cuenta(v_cli1, 1, 1, 1, v_cta_orig, v_num1); 
+    CALL banco_core.sp_crear_cuenta(v_cli2, 1, 1, 1, v_cta_dest, v_num2); 
+    CALL banco_core.sp_activar_cuenta(v_cta_orig, 1, 'Activación para prueba de transferencia'); 
+    CALL banco_core.sp_activar_cuenta(v_cta_dest, 1, 'Activación para prueba de transferencia'); 
+ 
+    -- 3. Fonder la cuenta de origen con $200.000 COP 
+    CALL banco_core.sp_consignar(uuid_generate_v4(), v_cta_orig, 200000.00, 1, v_tx_deposito); 
+ 
+    -- 4. Ejecutar la transferencia de $50.000 COP 
+    CALL banco_core.sp_transferir(uuid_generate_v4(), v_cta_orig, v_cta_dest, 50000.00, 1, v_tx_transferencia); 
+ 
+    RAISE NOTICE 'Transferencia ejecutada con éxito. ID Transacción: %', v_tx_transferencia; 
+END $$; 
+/ 
+@delimiter ;/ 
+ 
+-- 6.2 Consulta de verificación de la Partida Doble en el Ledger 
+SELECT 
+    t.id_transaccion, 
+    tt.nombre AS operacion, 
+    t.monto AS monto_transaccion, 
+    ac.num_linea, 
+    ac.codigo_cuenta_puc, 
+    ac.tipo_movimiento, 
+    ac.monto AS monto_asiento 
+FROM banco_core.transaccion t 
+JOIN banco_core.tipo_transaccion tt ON t.id_tipo_transaccion = tt.id_tipo_transaccion 
+JOIN banco_core.asiento_contable ac ON t.id_transaccion = ac.id_transaccion 
+WHERE t.id_transaccion = (SELECT MAX(id_transaccion) FROM banco_core.transaccion) 
+ORDER BY ac.num_linea ASC; 
+
+ 
+-- RESULTADO OBTENIDO:
+8	Transferencia de fondos entre cuentas	50000.00	1	210505	DEBITO	50000.00
+8	Transferencia de fondos entre cuentas	50000.00	2	210505	CREDITO	50000.00
+
+7. Revertir una transacción mediante operación compensatoria (Preservar histórico) 
+-- 7.1 Reversión de la última transferencia ejecutada 
+@delimiter /; 
+DO $$ 
+DECLARE 
+    v_tx_original BIGINT; 
+    v_id_reverso BIGINT; 
+BEGIN 
+    -- Obtener la última transferencia exitosa 
+    SELECT MAX(id_transaccion) INTO v_tx_original 
+    FROM banco_core.transaccion 
+    WHERE id_tipo_transaccion = 3 AND id_estado_transaccion = 2; 
+ 
+    IF v_tx_original IS NULL THEN 
+        RAISE EXCEPTION 'No se encontró una transferencia en estado POSTED para reversar'; 
+    END IF; 
+ 
+    -- Ejecutar el reverso compensatorio 
+    CALL banco_core.sp_reversar_transaccion( 
+        v_tx_original, 
+        1, 
+        'Reverso compensatorio de prueba de auditoría G3', 
+        v_id_reverso 
+    ); 
+ 
+    RAISE NOTICE 'Transacción % reversada exitosamente mediante reverso %', v_tx_original, v_id_reverso; 
+END $$; 
+/ 
+@delimiter ;/ 
+
+ 
+-- 7.2 Consulta de verificación de inmutabilidad e historial preservado 
+SELECT 
+    t.id_transaccion, 
+    tt.nombre AS tipo_transaccion, 
+    et.codigo AS estado_transaccion, 
+    t.monto, 
+    t.fecha_transaccion 
+FROM banco_core.transaccion t 
+JOIN banco_core.tipo_transaccion tt ON t.id_tipo_transaccion = tt.id_tipo_transaccion 
+JOIN banco_core.estado_transaccion et ON t.id_estado_transaccion = et.id_estado_transaccion 
+ORDER BY t.id_transaccion DESC 
+LIMIT 5; 
+
+-- RESULTADO OBTENIDO:
+--7.1
+ OK. No rows were affected
+SQLWarning:
+SQL State: 00000 --- Transacción 8 reversada exitosamente mediante reverso 9
+--7.2 
+9	Operación compensatoria de anulación	POSTED	50000.00	2026-09-12 16:31:44
+8	Transferencia de fondos entre cuentas	REVERSED	50000.00	2026-09-12 16:29:06
+7	Consignación o depósito en efectivo/cheque	POSTED	200000.00	2026-09-12 16:29:06
+3	Operación compensatoria de anulación	POSTED	200000.00	2026-09-12 14:57:13
+2	Transferencia de fondos entre cuentas	REVERSED	200000.00	2026-09-12 14:57:13

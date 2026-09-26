@@ -1,0 +1,40 @@
+# CONTEXTO
+al correr el 18_test.sql se generaban estos errores en el bdvisualizer:
+
+# prompt
+1. VIOLACIÓN DE LLAVE FORÁNEA (Foreign Key Constraint Violation)
+   - Código SQL State: 23503
+   - Error: inserción o actualización en la tabla «evento_cuenta» viola la llave foránea «fk_evento_cuenta_usuario»
+   - Detalle del motor: La llave (id_usuario_interno)=(1) no está presente en la tabla «usuario_interno».
+   - Ubicación del fallo:
+     - Tabla receptora: banco_core.evento_cuenta
+     - Columna afectada: id_usuario_interno
+     - Valor enviado: 1 (provisto por p_usuario_operador)
+
+2. TRAZA DE LLAMADAS (Call Stack):
+   - Sentencia SQL origen: 
+     INSERT INTO banco_core.evento_cuenta (id_cuenta, id_tipo_evento, id_usuario_interno, motivo, id_estado_anterior, id_estado_nuevo)
+     VALUES (p_id_cuenta, 1, p_usuario_operador, 'Apertura inicial de cuenta', NULL, 1)
+   - Procedimiento fallido: banco_core.sp_crear_cuenta(bigint, integer, integer, integer) (Línea 16)
+   - Invocación desde el bloque de pruebas: 
+     CALL banco_core.sp_crear_cuenta(v_id_cliente1, 1, 1, 1, v_id_cuenta1, v_num_cta1); (Línea 28)
+
+3. RESULTADO DE PRUEBAS ANTERIORES EN LA MISMA SUITE (PASS):
+   - PASS 1: Clientes creados con IDs 1 y 2.
+   - PASS 2: Documento duplicado rechazado correctamente (uk_persona_natural_doc).
+
+CAUSA RAÍZ:
+El procedimiento almacenado 'sp_crear_cuenta' intenta registrar un evento en 'banco_core.evento_cuenta' asignando el usuario operador con ID 1 (p_usuario_operador = 1). Sin embargo, la tabla 'banco_core.usuario_interno' se encuentra vacía o no tiene ningún registro insertado con el id_usuario_interno = 1, lo que rompe la integridad referencial.
+
+## RESPUESTA
+El análisis que realizaste es **100% correcto**. El procedimiento `sp_crear_cuenta` (al igual que las demás operaciones de activación, consignación y retiro) intenta registrar un evento en `banco_core.evento_cuenta` asociando el campo `id_usuario_interno = 1` (`p_usuario_operador`). 
+
+Al estar vacía la tabla `banco_security.usuario_interno`, la restricción de llave foránea `fk_evento_cuenta_usuario` detiene la ejecución con el código de error PostgreSQL `23503`.
+
+---
+
+### Solución
+
+Para solucionar la violación de integridad referencial, se agregan los **registros semilla de usuarios internos** en `07_users_security.sql` y se ajusta la suite de pruebas `18_tests.sql` para consultar de forma dinámica el ID del usuario operador.
+
+por ende contamos con dos archivos sql (07 y 18)con sus versiones 2.0 

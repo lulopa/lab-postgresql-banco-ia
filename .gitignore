@@ -1,0 +1,6 @@
+﻿banco_andino_completo.sql
+data_csv/
+*.csv
+.env
+config.py
+*.bat
