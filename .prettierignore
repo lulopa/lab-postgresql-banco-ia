@@ -1,0 +1,14 @@
+dist
+storybook-static
+coverage
+playwright-report
+test-results
+node_modules
+package-lock.json
+public/sw.js
+data_csv
+docs
+evidence
+prompts
+src1
+README.md

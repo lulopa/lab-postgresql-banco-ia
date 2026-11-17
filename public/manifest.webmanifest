@@ -1,0 +1,10 @@
+{
+  "name": "Banco Andino Colombia",
+  "short_name": "Banco Andino",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0087D5",
+  "lang": "es-CO",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

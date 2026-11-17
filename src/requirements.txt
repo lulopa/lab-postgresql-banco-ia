@@ -1,5 +1,0 @@
-### 3. Archivos Complementarios requirements.txt
-pandas>=2.0.0
-numpy>=1.24.0
-psycopg2-binary>=2.9.6
-

@@ -1,0 +1,13 @@
+# Propiedad por rutas según §6 del documento de traspaso.
+/src/pages/auth/              @dev-a
+/src/pages/cliente/           @dev-a
+/src/components/layout/       @dev-a
+/src/store/authStore.ts       @dev-a
+/src/components/ui/           @dev-b
+/src/pages/auditoria/         @dev-b
+/src/pages/operativa/         @dev-b
+# Compartidos: requieren aprobación de ambos
+/src/contracts/               @dev-a @dev-b
+/src/services/apiClient.ts    @dev-a @dev-b
+/tailwind.config.js           @dev-a @dev-b
+/src/index.css                @dev-a @dev-b

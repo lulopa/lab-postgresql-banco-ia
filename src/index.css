@@ -1,0 +1,96 @@
+/* COMPARTIDO (Dev A + Dev B). Tokens del documento §2.2 + variantes derivadas.
+ *
+ * DECISIÓN DE ACCESIBILIDAD (conflicto señalado, ver README §Conflictos):
+ * #0087D5, #DF460C y #7E8D0C NO alcanzan 4.5:1 como texto sobre blanco ni con texto blanco encima
+ * (3.9, 4.2 y 3.7). El documento exige a la vez la paleta y WCAG AA; AA prevalece para TEXTO.
+ * Los colores de marca se usan como relleno con texto oscuro (#0F172A) donde pasa, y se
+ * añaden variantes derivadas (--*-text, --danger-solid) para texto/botones de acción crítica.
+ * src/test/contrast.test.ts verifica todos los pares leyendo este archivo.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-calgar-blue: #0087d5;
+  --color-tail-lights: #df460c;
+  --color-krypton-green: #7e8d0c;
+  --color-sunny-yellow: #fff51b;
+
+  --bg-app-light: #f8fafc;
+  --bg-card-light: #ffffff;
+  --text-main-light: #0f172a;
+  --text-muted-light: #64748b;
+  --border-light: #e2e8f0;
+
+  --bg-app-dark: #0b132b;
+  --bg-card-dark: #1c2541;
+  --text-main-dark: #f1f5f9;
+  --text-muted-dark: #94a3b8;
+  --border-dark: #334155;
+
+  --font-sans: 'Inter Variable', 'Inter', system-ui, -apple-system, sans-serif;
+  --font-numeric: 'Inter', tabular-nums;
+
+  /* Alias semánticos (modo claro) */
+  --bg-app: var(--bg-app-light);
+  --bg-card: var(--bg-card-light);
+  --text-main: var(--text-main-light);
+  --text-muted: var(--text-muted-light);
+  --border: var(--border-light);
+
+  /* Derivados accesibles */
+  --on-brand: #0f172a;
+  --on-success: #0f172a;
+  --on-warning: #0f172a;
+  --on-danger: #ffffff;
+  --danger-solid: #b5360a;
+  /* Hover: más claro el azul (texto oscuro gana contraste) y más oscuro el rojo (texto blanco gana contraste). */
+  --brand-hover: #2aa3e6;
+  --danger-hover: #9a2d07;
+  --brand-text: #00629c;
+  --danger-text: #b5360a;
+  --success-text: #5e6a09;
+}
+
+.dark {
+  --bg-app: var(--bg-app-dark);
+  --bg-card: var(--bg-card-dark);
+  --text-main: var(--text-main-dark);
+  --text-muted: var(--text-muted-dark);
+  --border: var(--border-dark);
+  --brand-text: #4db4f0;
+  --danger-text: #ff8a5c;
+  --success-text: #a8bb2a;
+}
+
+html {
+  font-family: var(--font-sans);
+}
+body {
+  background: var(--bg-app);
+  color: var(--text-main);
+}
+.num {
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-numeric);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-calgar-blue);
+  outline-offset: 2px;
+}
+
+/* Desenfoque por pérdida de foco (requisito de sesión §5.3) */
+.privacy-blur {
+  filter: blur(14px);
+  pointer-events: none;
+  user-select: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

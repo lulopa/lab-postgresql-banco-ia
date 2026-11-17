@@ -1,6 +1,31 @@
-﻿banco_andino_completo.sql
+﻿# Datos pesados
+banco_andino_completo.sql
+*.sql
 data_csv/
 *.csv
+
+# Entorno, credenciales y configuraciones locales (raíz y bff)
 .env
+.env.*
+**/.env
+**/.env.*
 config.py
 *.bat
+__pycache__/
+
+# Archivos auxiliares o respaldos innecesarios
+GITIGNORE-ADICIONAL.txt
+src1/
+
+# Frontend, BFF y compilados
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+.vite/
+
+# Documentación excluida
+README-FRONTEND.md
+readme.md
+README.md

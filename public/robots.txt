@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /auth/login
+Disallow: /cliente
+Disallow: /auditoria
+Disallow: /operativa
+Disallow: /api/
