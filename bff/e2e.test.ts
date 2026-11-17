@@ -144,6 +144,25 @@ run('BFF contra PostgreSQL real', () => {
     expect(bad?.tok.status).toBe(200);
   });
 
+  it('login de desarrollo: acepta el callback del mismo host (localhost/túnel) y rechaza otros dominios', async () => {
+    const q = (redirect: string) =>
+      new URLSearchParams({
+        response_type: 'code',
+        client_id: 'banco-andino-web',
+        redirect_uri: redirect,
+        state: 's',
+        nonce: 'n',
+        code_challenge: createHash('sha256').update('x'.repeat(50)).digest('base64url'),
+        code_challenge_method: 'S256',
+      });
+    expect((await fetch(`${BASE}/dev-idp/authorize?${q(`${BASE}/auth/callback`)}`)).status).toBe(200);
+    expect((await fetch(`${BASE}/dev-idp/authorize?${q('https://evil.example/auth/callback')}`)).status).toBe(
+      400,
+    );
+    expect((await fetch(`${BASE}/dev-idp/authorize?${q(`${BASE}/otra/ruta`)}`)).status).toBe(400);
+    expect((await fetch(`${BASE}/dev-idp/authorize?${q(`${BASE}/auth/callback?x=1`)}`)).status).toBe(400);
+  });
+
   it('RBAC: sin token 401; rol equivocado 403 (el cliente no entra a auditoría/operativa, y viceversa)', async () => {
     expect((await api('/api/v1/cliente/posicion-global', null)).status).toBe(401);
     expect((await api('/api/v1/auditoria/bitacora', cli)).status).toBe(403);

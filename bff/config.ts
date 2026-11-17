@@ -12,6 +12,8 @@ try {
 const production = process.env.NODE_ENV === 'production';
 const devLogin = process.env.DEV_LOGIN === 'true';
 if (production && devLogin) throw new Error('DEV_LOGIN no puede activarse con NODE_ENV=production');
+if (process.env.DEV_LOGIN_KEY && process.env.DEV_LOGIN_KEY.length < 8)
+  throw new Error('DEV_LOGIN_KEY debe tener al menos 8 caracteres');
 if (production && !process.env.JWT_SECRET) throw new Error('JWT_SECRET es obligatorio en producción');
 if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32)
   throw new Error('JWT_SECRET debe tener al menos 32 caracteres');
@@ -20,6 +22,8 @@ export const config = {
   port: Number(process.env.BFF_PORT ?? 8080),
   production,
   devLogin,
+  // Clave que se pide antes de mostrar los usuarios del login de desarrollo (obligatoria si se expone por túnel).
+  devLoginKey: process.env.DEV_LOGIN_KEY ?? '',
   // Sin JWT_SECRET se genera uno al arrancar: las sesiones se pierden al reiniciar (aceptable solo en desarrollo).
   jwtSecret: process.env.JWT_SECRET ?? randomBytes(32).toString('hex'),
   clientId: process.env.OIDC_CLIENT_ID ?? 'banco-andino-web',

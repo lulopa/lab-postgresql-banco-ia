@@ -2,7 +2,8 @@ export const env = {
   apiBaseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
   oidcAuthorizeUrl: import.meta.env.VITE_OIDC_AUTHORIZE_URL ?? '',
   oidcClientId: import.meta.env.VITE_OIDC_CLIENT_ID ?? '',
-  oidcRedirectUri: import.meta.env.VITE_OIDC_REDIRECT_URI ?? `${window.location.origin}/auth/callback`,
+  // `||` (no `??`): un valor vacío en .env.<modo> también cae al origen actual (túnel / despliegue)
+  oidcRedirectUri: import.meta.env.VITE_OIDC_REDIRECT_URI || `${window.location.origin}/auth/callback`,
   oidcScope: import.meta.env.VITE_OIDC_SCOPE ?? 'openid profile',
 } as const;
 

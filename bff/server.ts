@@ -11,6 +11,7 @@ import { operativaRouter } from './routes/operativa';
 
 const app = express();
 app.disable('x-powered-by');
+app.set('trust proxy', 'loopback'); // detrás de un túnel local: req.ip = IP real del cliente (límite de intentos)
 app.use((_req, res, next) => {
   res.set({
     'Cache-Control': 'no-store',
@@ -52,6 +53,8 @@ app.use(errorHandler);
 
 app.listen(config.port, () => {
   console.log(`BFF Banco Andino escuchando en http://localhost:${config.port}`);
+  if (config.devLogin && !config.devLoginKey)
+    console.log('⚠  Sin DEV_LOGIN_KEY: NO expongas esta app por un túnel público.');
   if (config.devLogin)
     console.log(
       '⚠  DEV_LOGIN activo: acceso de desarrollo SIN contraseña en /dev-idp (no usar en producción).',
